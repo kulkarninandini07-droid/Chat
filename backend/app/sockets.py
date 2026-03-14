@@ -1,6 +1,7 @@
 from flask_socketio import emit, join_room
 from app import socketio
 from app.commands import handle_command
+from app.supabase_client import supabase
 
 @socketio.on("connect")
 def handle_connect():
@@ -50,7 +51,16 @@ def handle_message(data):
 
     rooms[room].append(message)
 
-    emit("message", message, broadcast=True)
+    response = supabase.table("messages").insert({
+        "user": user,
+        "room": room,
+        "text": text
+    }).execute()
+
+    print("SUPABASE RESPONSE:", response)
+
+    emit("message", message, to=room)
+
 
 
 @socketio.on("joinRoom")
