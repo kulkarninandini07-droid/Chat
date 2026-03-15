@@ -90,9 +90,33 @@ def handle_join_room(data):
     room = data["room"]
     username = data["username"]
 
+    print(username, "joining room:", room)
+
     join_room(room)
 
     if room not in rooms:
         rooms[room] = []
 
     emit("loadMessages", rooms[room])
+
+    emit("loadMessages", rooms[room])
+@socketio.on("createRoom")
+def handle_create_room(data):
+
+    room = data["room"]
+
+    # Prevent duplicate rooms
+    if room in rooms:
+        emit("message", {
+            "user": "System",
+            "text": "Room already exists",
+            "room": "general"
+        })
+        return
+
+    rooms[room] = []
+
+    print("New room created:", room)
+
+    # Broadcast new room to everyone
+    emit("roomList", list(rooms.keys()), broadcast=True)
