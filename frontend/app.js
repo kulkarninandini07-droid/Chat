@@ -1,110 +1,137 @@
 const socket = io();
 
-let username = "";
+let username = localStorage.getItem("username");
+let user_id = localStorage.getItem("user_id");
+let role = localStorage.getItem("role");
+
 let currentRoom = "general";
 
-function joinSystem(){
 
-    console.log("Join clicked");
+// ---------- LOGIN CHECK ----------
 
-    username = document.getElementById("username").value;
+window.onload = function(){
 
-    if(username === ""){
-        alert("Enter username");
-        return;
-    }
+if(!username){
 
-    console.log("Sending joinUser event:", username);
+alert("Login first");
+window.location.href="/login";
+return;
 
-    document.getElementById("loginPage").style.display = "none";
-    document.getElementById("chatPage").style.display = "block";
-
-    socket.emit("joinUser", username);
 }
 
+socket.emit("joinUser",{
+username:username,
+user_id:user_id,
+role:role
+});
+
+};
+
+
+
+// ---------- SEND MESSAGE ----------
 
 function sendMessage(){
 
-    const input = document.getElementById("messageInput");
-    const message = input.value;
+const input=document.getElementById("messageInput");
+const text=input.value;
 
-    if(message === "") return;
+if(text==="") return;
 
-    socket.emit("chatMessage", {
-        user: username,
-        room: currentRoom,
-        text: message
-    });
+socket.emit("chatMessage",{
 
-    input.value = "";
+user_id:user_id,
+username:username,
+room:currentRoom,
+text:text
+
+});
+
+input.value="";
+
 }
 
-socket.on("message", function(data){
 
-    console.log("MESSAGE EVENT RECEIVED:", data);
 
-    const msgBox = document.getElementById("messages");
+// ---------- RECEIVE MESSAGE ----------
 
-    const div = document.createElement("div");
+socket.on("message",function(data){
 
-    div.innerText = data.user + ": " + data.text;
+const msgBox=document.getElementById("messages");
 
-    msgBox.appendChild(div);
+const div=document.createElement("div");
+
+div.innerHTML="<b>"+data.user+"</b>: "+data.text;
+
+msgBox.appendChild(div);
+
+msgBox.scrollTop=msgBox.scrollHeight;
+
+});
+
+
+
+// ---------- ROOM LIST ----------
+
+socket.on("roomList",function(rooms){
+
+const roomList=document.getElementById("roomList");
+
+roomList.innerHTML="";
+
+rooms.forEach(room=>{
+
+const li=document.createElement("li");
+
+li.innerText=room;
+
+li.onclick=function(){
+
+joinRoom(room);
+
+};
+
+roomList.appendChild(li);
+
+});
 
 });
 
 
-socket.on("roomList", rooms => {
 
-    const roomList = document.getElementById("roomList");
-
-    roomList.innerHTML = "";
-
-    rooms.forEach(room => {
-
-        const li = document.createElement("li");
-
-        li.innerText = "#" + room;
-
-        li.onclick = () => joinRoom(room);
-
-        roomList.appendChild(li);
-
-    });
-
-});
+// ---------- JOIN ROOM ----------
 
 function joinRoom(room){
 
-    currentRoom = room;
+currentRoom=room;
 
-    socket.emit("joinRoom", room);
+socket.emit("joinRoom",{
+room:room,
+username:username
+});
 
-    document.getElementById("messages").innerHTML = "";
+document.getElementById("messages").innerHTML="";
 
 }
 
-socket.on("loadMessages", messages => {
 
-    const msgBox = document.getElementById("messages");
 
-    msgBox.innerHTML = "";
+// ---------- LOAD MESSAGES ----------
 
-    messages.forEach(data => {
+socket.on("loadMessages",function(messages){
 
-        const div = document.createElement("div");
+const msgBox=document.getElementById("messages");
 
-        const time = new Date().toLocaleTimeString();
+msgBox.innerHTML="";
 
-        if(data.user === "System"){
-            div.innerHTML = "<span class='system'>[" + time + "] " + data.text + "</span>";
-        }
-        else{
-            div.innerHTML = "<b>" + data.user + "</b>: " + data.text;
-        }
+messages.forEach(data=>{
 
-        msgBox.appendChild(div);
+const div=document.createElement("div");
 
-    });
+div.innerHTML="<b>"+data.user+"</b>: "+data.text;
+
+msgBox.appendChild(div);
+
+});
 
 });

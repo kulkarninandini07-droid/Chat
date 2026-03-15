@@ -1,25 +1,38 @@
 from flask_socketio import emit, join_room
 from app import socketio
-from app.commands import handle_command
 from app.supabase_client import supabase
+
+users = {}
+
+rooms = {
+    "general": [],
+    "admin-room": [],
+    "manager-room": [],
+    "employee-room": []
+}
 
 @socketio.on("connect")
 def handle_connect():
     print("Client connected")
 
-users = {}
-rooms = {
-    "general": []
-}
 
+# USER JOIN
 @socketio.on("joinUser")
-def handle_join_user(username):
+def handle_join_user(data):
 
-    users[username] = "general"
+    username = data["username"]
+    user_id = data["user_id"]
+    role = data["role"]
+
+    users[username] = {
+        "user_id": user_id,
+        "role": role,
+        "room": "general"
+    }
 
     join_room("general")
 
-    print(username, "joined general")
+    print(username, "joined with role:", role)
 
     emit("message", {
         "user": "System",
@@ -27,21 +40,31 @@ def handle_join_user(username):
         "room": "general"
     }, broadcast=True)
 
-    emit("roomList", list(rooms.keys()), broadcast=True)
+    # 🔒 FILTER ROOMS BASED ON ROLE
+    visible_rooms = []
+
+    if role == "admin":
+        visible_rooms = list(rooms.keys())
+
+    elif role == "manager":
+        visible_rooms = ["general", "manager-room", "employee-room"]
+
+    elif role == "employee":
+        visible_rooms = ["general", "employee-room"]
+
+    emit("roomList", visible_rooms)
 
 
-
+# SEND MESSAGE
 @socketio.on("chatMessage")
 def handle_message(data):
 
-    print("MESSAGE RECEIVED:", data)
-
-    user = data["user"]
+    username = data["username"]
     room = data["room"]
     text = data["text"]
 
     message = {
-        "user": user,
+        "user": username,
         "text": text,
         "room": room
     }
@@ -51,20 +74,21 @@ def handle_message(data):
 
     rooms[room].append(message)
 
-    response = supabase.table("messages").insert({
-        "user": user,
+    supabase.table("messages").insert({
+        "user": username,
         "room": room,
         "text": text
     }).execute()
 
-    print("SUPABASE RESPONSE:", response)
-
     emit("message", message, to=room)
 
 
-
+# JOIN ROOM
 @socketio.on("joinRoom")
-def handle_join_room(room):
+def handle_join_room(data):
+
+    room = data["room"]
+    username = data["username"]
 
     join_room(room)
 
